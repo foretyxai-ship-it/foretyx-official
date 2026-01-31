@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
-import { toast } from "sonner"; // Assuming shadcn sonner is installed
+import { ArrowRight, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
@@ -12,35 +11,37 @@ const fadeInUp = {
 
 const EmailCapture = () => {
   const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
 
-    setIsLoading(true);
+    setStatus("loading");
+    setErrorMessage("");
 
     try {
-      // Sending data to your Vercel Serverless Function
+      // Connects to your backend file at api/subscribe.ts
       const response = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to subscribe");
+        // This catches 400, 405, and 500 errors from your subscribe.ts
+        throw new Error(data.error || "Something went wrong");
       }
 
-      setSubmitted(true);
+      setStatus("success");
       setEmail("");
-      toast.success("Welcome to the waitlist!");
-    } catch (error) {
-      toast.error("Something went wrong. Please try again.");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      setStatus("error");
+      setErrorMessage(error.message || "Failed to join waitlist. Please try again.");
     }
   };
 
@@ -61,37 +62,56 @@ const EmailCapture = () => {
             Join enterprises already on the waitlist for early access.
           </p>
 
-          {submitted ? (
+          {status === "success" ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-secondary border border-accent/20 rounded-xl p-8"
+              className="bg-secondary border border-[#AADDEC]/20 rounded-xl p-8"
             >
-              <CheckCircle2 className="w-12 h-12 text-accent mx-auto mb-4" />
+              <CheckCircle2 className="w-12 h-12 text-[#AADDEC] mx-auto mb-4" />
               <p className="text-foreground font-medium text-lg">You're on the list.</p>
               <p className="text-muted-foreground text-sm mt-2">
-                Check your inbox! We've sent a confirmation to {email}.
+                We'll reach out when it's your turn. Check your inbox for a confirmation.
               </p>
             </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                type="email"
-                placeholder="Work email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-                className="h-14 text-base bg-secondary border-border placeholder:text-muted-foreground focus:ring-2 focus:ring-accent/50 focus:border-accent"
-              />
+              <div className="space-y-2">
+                <Input
+                  type="email"
+                  placeholder="Work email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={status === "loading"}
+                  className="h-14 text-base bg-secondary border-white/10 placeholder:text-muted-foreground/50 
+                             focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[#AADDEC] 
+                             transition-colors duration-200"
+                />
+                
+                {status === "error" && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 text-red-400 text-sm text-left px-1"
+                  >
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{errorMessage}</span>
+                  </motion.div>
+                )}
+              </div>
+
               <Button
                 type="submit"
                 size="lg"
-                disabled={isLoading}
-                className="w-full h-14 bg-foreground text-background hover:bg-foreground/90 font-medium text-base"
+                disabled={status === "loading"}
+                className="w-full h-14 bg-white text-black hover:bg-[#AADDEC] font-bold text-base transition-all duration-300 border-none"
               >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                {status === "loading" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Joining...
+                  </>
                 ) : (
                   <>
                     Get early access
@@ -100,7 +120,7 @@ const EmailCapture = () => {
                 )}
               </Button>
               <p className="text-xs text-muted-foreground pt-2">
-                By joining, you agree to our privacy policy.
+                No spam. Unsubscribe anytime.
               </p>
             </form>
           )}

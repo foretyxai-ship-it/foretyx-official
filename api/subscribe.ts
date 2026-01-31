@@ -22,7 +22,7 @@ export default async function handler(req: any, res: any) {
 
     // 2. Send via Resend (Using your verified domain)
     await resend.emails.send({
-      from: 'Soham from Foretyx <hello@foretyx.in>', 
+      from: 'hello from Foretyx <hello@foretyx.in>', 
       to: email,
       subject: 'Waitlist Confirmed | Foretyx',
       html: `
